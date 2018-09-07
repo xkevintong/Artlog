@@ -1,4 +1,5 @@
 from bs4 import BeautifulSoup
+import requests
 
 links = open('links.txt', 'w', encoding='utf8')
 fb_page = open('fb_page.txt', 'w', encoding='utf8')
@@ -19,8 +20,10 @@ for i, msg in enumerate(msgs):
 
 		# Check for class="touchable _4qxt" 's href, which should be most links?
 		if div.find(class_='touchable _4qxt') is not None:
-			links.write(div.find(class_='touchable _4qxt')['href'] + '\n')
-
+			url = div.find(class_='touchable _4qxt')['href']
+			response = requests.get(url)
+			response_soup = BeautifulSoup(response.content, 'html.parser')
+			links.write(response_soup.find('span', class_='_5slv').get_text() + '\n')
 
 		# Check for FB page links
 
