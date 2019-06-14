@@ -16,23 +16,28 @@ def request_url_from_div(div):
         return response_soup.find('span', class_='_5slv').get_text()
 
 
-def get_url_from_msg(msg):
+def get_url_from_msg(msg, domains):
     # Check for class="touchable _4qxt" 's href, which should be most links?
     if msg.div.span.a is not None:
         return "".join(msg.div.span.a.find_all(text=True))
 
     # Facebook page
-    elif msg.find(class_="story_body_container") is not None:
+    elif msg.find(class_="_39pi") is not None:
         return msg.find(class_="_39pi")["href"]
 
-    return None
+    # Check if message is a box without text
+    if extract(msg.div.find(text=True)).domain in domains:
+        return request_url_from_div(msg.div)
+
+    # Dump text if nothing matches
+    return " ".join(msg.div.find_all(text=True))
 
 
 def parse():
     links_file = open('links.json', 'w', encoding='utf8')
     scratch = open('scratch.txt', 'w', encoding='utf8')
 
-    soup = BeautifulSoup(open('tini.html', encoding='utf8'), 'html.parser')
+    soup = BeautifulSoup(open('medi.html', encoding='utf8'), 'html.parser')
     message_group = soup.find('div', {'id': 'messageGroup'})
     msgs = message_group.find_all('div', class_='msg')
 
@@ -42,15 +47,17 @@ def parse():
     for domain in valid_domains:
         links[domain] = []
 
-    # "misc" is not a valid domain, but will collect
-    links["misc"] = []
+    # These aren't valid domains, but will collect
+    invalid_ = ["misc", "message"]
+    for key in invalid_:
+        links[key] = []
 
     for i, msg in enumerate(msgs):
         num_divs += 1
         scratch.write(msg.prettify())
 
         # Write to json, then write once to file
-        url = get_url_from_msg(msg)
+        url = get_url_from_msg(msg, valid_domains)
         if url:
             domain = extract(url).domain
             if domain in valid_domains:
@@ -60,11 +67,9 @@ def parse():
         else:
             print("Nothing extracted from div")
             print(msg.prettify())
+            links["message"] = url
 
     json.dump(links, links_file, indent=4)
-
-    # Check for links to facebook pages
-    # Look for story_body_container
 
     # Check for raw images
 
