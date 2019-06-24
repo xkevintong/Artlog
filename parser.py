@@ -50,7 +50,7 @@ def get_time_from_msg(div):
         return time.to('US/Pacific').format('YYYY-MM-DD HH:mm')
 
 
-def parse():
+def parse_html():
     links_file = open('links.json', 'w', encoding='utf8')
     scratch = open('scratch.txt', 'w', encoding='utf8')
 
@@ -72,11 +72,11 @@ def parse():
     for i, msg in enumerate(msgs):
         num_divs += 1
         scratch.write(msg.prettify())
-        info = {}
+        info = {
+            'url': get_url_from_msg(msg.div, valid_domains),
+            'time': get_time_from_msg(msg.div.next_sibling)
+        }
 
-        # Write to json, then write once to file
-        info['url'] = get_url_from_msg(msg.div, valid_domains)
-        info['time'] = get_time_from_msg(msg.div.next_sibling)
         if info['url']:
             domain = extract(info['url']).domain
             if domain in valid_domains:
@@ -93,8 +93,6 @@ def parse():
     # TODO: count number of possible raw images
     # Check for raw images
 
-    # Text messages have content within span
-
     # Everything else should go in some Misc. section
     # is there really a misc section if i have to know how to pull the url
     # really just a have to sort manually section
@@ -105,5 +103,35 @@ def parse():
         print("All messages processed correctly!")
 
 
+def download_twitter_images():
+    twitter_links = json.load(open('links.json'))['twitter']
+    for msg in twitter_links:
+        response = requests.get(msg['url'])
+        response_soup = BeautifulSoup(response.content, 'html.parser')
+        image_source_div = response_soup.find('div', class_='AdaptiveMedia-photoContainer js-adaptive-photo')
+        if image_source_div:
+            image_source = image_source_div['data-image-url']
+            image_name = image_source.rsplit('/', 1)[-1]
+
+            # The large image's path can be reached by appending ':large'
+            image_response = requests.get(image_source + ':large')
+            with open(f'images\{image_name}', 'wb') as file:
+                file.write(image_response.content)
+        else:
+            print("Image failed to download: " + msg['url'])
+
+    return None
+
+
+def download_pixiv_images():
+    return None
+
+
+def download_images():
+    download_twitter_images()
+    download_pixiv_images()
+
+
 if __name__ == "__main__":
-    parse()
+    # parse_html()
+    download_images()
