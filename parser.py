@@ -4,6 +4,9 @@ from bs4 import BeautifulSoup
 import requests
 from tldextract import extract
 import arrow
+import tweepy
+
+from credentials import *
 
 
 def request_url_from_div(div):
@@ -103,24 +106,46 @@ def parse_html():
         print("All messages processed correctly!")
 
 
+def twitter_auth():
+    auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
+    auth.set_access_token(access_token, access_token_secret)
+    return tweepy.API(auth)
+
+
+def twitter_test():
+    api = twitter_auth()
+    status = api.get_status(1144858017151610880)
+    print(json.dumps(status._json, indent=4))
+
+
+def _requests_twitter_download(tweet_url):
+    response = requests.get(tweet_url)
+    response_soup = BeautifulSoup(response.content, 'html.parser')
+    image_source_div = response_soup.find('div', class_='AdaptiveMedia-photoContainer js-adaptive-photo')
+    if image_source_div:
+        image_source = image_source_div['data-image-url']
+        image_name = image_source.rsplit('/', 1)[-1]
+
+        # The large image's path can be reached by appending ':large'
+        image_response = requests.get(image_source + ':large')
+        with open(f'images\{image_name}', 'wb') as file:
+            file.write(image_response.content)
+        return 'Success', image_source
+    else:
+        print("Image failed to download: " + tweet_url)
+        return 'Failed', None
+
+
 def download_twitter_images():
-    twitter_links = json.load(open('links.json'))['twitter']
-    for msg in twitter_links:
-        response = requests.get(msg['url'])
-        response_soup = BeautifulSoup(response.content, 'html.parser')
-        image_source_div = response_soup.find('div', class_='AdaptiveMedia-photoContainer js-adaptive-photo')
-        if image_source_div:
-            image_source = image_source_div['data-image-url']
-            image_name = image_source.rsplit('/', 1)[-1]
+    with open('links.json') as links:
+        image_status = []
+        for msg in json.load(links)['twitter']:
+            msg['status'], msg['source'] = _requests_twitter_download(msg['url'])
+            msg['dl_time'] = arrow.now('US/Pacific').format('YYYY-MM-DD HH:mm')
+            image_status.append(msg)
 
-            # The large image's path can be reached by appending ':large'
-            image_response = requests.get(image_source + ':large')
-            with open(f'images\{image_name}', 'wb') as file:
-                file.write(image_response.content)
-        else:
-            print("Image failed to download: " + msg['url'])
-
-    return None
+    with open('twitter.json', 'w') as twitter:
+        json.dump(image_status, twitter, indent=4)
 
 
 def download_pixiv_images():
@@ -135,3 +160,4 @@ def download_images():
 if __name__ == "__main__":
     # parse_html()
     download_images()
+    # twitter_test()

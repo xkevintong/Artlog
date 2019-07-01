@@ -1,4 +1,8 @@
+.idea/
+__pycache__/
 *.html
 *_files/
 *.txt
 *.json
+
+credentials.py
