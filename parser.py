@@ -114,8 +114,12 @@ def twitter_auth():
 
 def twitter_test():
     api = twitter_auth()
-    status = api.get_status(1144858017151610880)
-    print(json.dumps(status._json, indent=4))
+    # single image, multiple image, link, text
+    list = [1149892112973877248, 1149589694662840322]
+    for id in list:
+        status = api.get_status(id)
+        # print(status)
+        print(json.dumps(status._json, indent=4))
 
 
 def _requests_twitter_download(tweet_url):
@@ -137,10 +141,42 @@ def _requests_twitter_download(tweet_url):
 
 
 def download_twitter_images():
+    api = twitter_auth()
     with open('links.json') as links:
         image_status = []
         for msg in json.load(links)['twitter']:
-            msg['status'], msg['source'] = _requests_twitter_download(msg['url'])
+            tweet_id = msg['url'].partition('status/')[2].partition('?')[0]
+            num_media = 0
+            if tweet_id:
+                tweet = api.get_status(tweet_id)._json
+                try:
+                    for media in tweet['extended_entities']['media']:
+                        num_media += 1
+                        msg['source'] = media_source = media['media_url']
+                        media_name = media['media_url'].rsplit('/', 1)[-1]
+                        media_response = requests.get(media_source + ':large')
+                        with open(f'images\{media_name}', 'wb') as file:
+                            file.write(media_response.content)
+                        print(media['media_url'])
+                except KeyError:
+                    pass
+                # Also check to see if a tweet was quoted
+                try:
+                    for media in tweet['quoted_status']['extended_entities']['media']:
+                        num_media += 1
+                        msg['source'] = media_source = media['media_url']
+                        media_name = media['media_url'].rsplit('/', 1)[-1]
+                        media_response = requests.get(media_source + ':large')
+                        with open(f'images\{media_name}', 'wb') as file:
+                            file.write(media_response.content)
+                        print(media['media_url'])
+                except KeyError:
+                    pass
+            else:
+                msg['error'] = "Not a tweet"
+            msg['num_media'] = num_media
+            # msg['status'], msg['source'] = _requests_twitter_download(msg['url'])
+            msg['id'] = tweet_id
             msg['dl_time'] = arrow.now('US/Pacific').format('YYYY-MM-DD HH:mm')
             image_status.append(msg)
 
@@ -149,7 +185,7 @@ def download_twitter_images():
 
 
 def download_pixiv_images():
-    return None
+    pass
 
 
 def download_images():
