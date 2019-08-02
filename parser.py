@@ -94,7 +94,6 @@ def parse_html():
     json.dump(links, links_file, indent=4)
 
     # TODO: count number of possible raw images
-    # Check for raw images
 
     # Everything else should go in some Misc. section
     # is there really a misc section if i have to know how to pull the url
@@ -140,6 +139,10 @@ def _requests_twitter_download(tweet_url):
         return 'Failed', None
 
 
+def like_tweet(tweepy_api, tweet_id):
+    tweepy_api.create_favorite(tweet_id)
+
+
 def download_twitter_images():
     api = twitter_auth()
     with open('links.json') as links:
@@ -149,35 +152,46 @@ def download_twitter_images():
             num_media = 0
             if tweet_id:
                 tweet = api.get_status(tweet_id)._json
-                try:
-                    for media in tweet['extended_entities']['media']:
-                        num_media += 1
-                        msg['source'] = media_source = media['media_url']
-                        media_name = media['media_url'].rsplit('/', 1)[-1]
-                        media_response = requests.get(media_source + ':large')
-                        with open(f'images\{media_name}', 'wb') as file:
-                            file.write(media_response.content)
-                        print(media['media_url'])
-                except KeyError:
-                    pass
-                # Also check to see if a tweet was quoted
-                try:
-                    for media in tweet['quoted_status']['extended_entities']['media']:
-                        num_media += 1
-                        msg['source'] = media_source = media['media_url']
-                        media_name = media['media_url'].rsplit('/', 1)[-1]
-                        media_response = requests.get(media_source + ':large')
-                        with open(f'images\{media_name}', 'wb') as file:
-                            file.write(media_response.content)
-                        print(media['media_url'])
-                except KeyError:
-                    pass
+                if not tweet['favorited']:
+                    try:
+                        # todo: helper func these
+                        for media in tweet['extended_entities']['media']:
+                            num_media += 1
+                            msg['source'] = media_source = media['media_url']
+                            media_name = media['media_url'].rsplit('/', 1)[-1]
+                            media_response = requests.get(media_source + ':large')
+                            with open(f'images\{media_name}', 'wb') as file:
+                                file.write(media_response.content)
+                            print(media['media_url'])
+                    except KeyError:
+                        pass
+                    # Also check to see if a tweet was quoted
+                    try:
+                        for media in tweet['quoted_status']['extended_entities']['media']:
+                            num_media += 1
+                            msg['source'] = media_source = media['media_url']
+                            media_name = media['media_url'].rsplit('/', 1)[-1]
+                            media_response = requests.get(media_source + ':large')
+                            with open(f'images\{media_name}', 'wb') as file:
+                                file.write(media_response.content)
+                            print(media['media_url'])
+                    except KeyError:
+                        pass
+
+                    # Like the tweet after downloading
+                    msg['already_liked'] = False
+                    if num_media > 0:
+                        like_tweet(api, tweet_id)
+
+                else:
+                    num_media = -1
+                    msg['already_liked'] = True
             else:
                 msg['error'] = "Not a tweet"
             msg['num_media'] = num_media
             # msg['status'], msg['source'] = _requests_twitter_download(msg['url'])
             msg['id'] = tweet_id
-            msg['dl_time'] = arrow.now('US/Pacific').format('YYYY-MM-DD HH:mm')
+            msg['time'] = arrow.now('US/Pacific').format('YYYY-MM-DD HH:mm')
             image_status.append(msg)
 
     with open('twitter.json', 'w') as twitter:
@@ -196,4 +210,3 @@ def download_images():
 if __name__ == "__main__":
     # parse_html()
     download_images()
-    # twitter_test()
