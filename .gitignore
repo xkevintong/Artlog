@@ -6,3 +6,4 @@ __pycache__/
 *.json
 
 credentials.py
+client_id.json

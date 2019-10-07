@@ -57,7 +57,7 @@ def parse_html():
     links_file = open('links.json', 'w', encoding='utf8')
     scratch = open('scratch.txt', 'w', encoding='utf8')
 
-    soup = BeautifulSoup(open('smol.html', encoding='utf8'), 'html.parser')
+    soup = BeautifulSoup(open('messenger/smol.html', encoding='utf8'), 'html.parser')
     message_group = soup.find('div', {'id': 'messageGroup'})
     msgs = message_group.find_all('div', class_='c')
 
