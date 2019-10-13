@@ -1,13 +1,12 @@
 import io
+import json
 
 from googleapiclient import discovery
 from googleapiclient.http import MediaIoBaseDownload
 from httplib2 import Http
 from oauth2client import file, client, tools
+import pendulum
 
-# Find Artlog folder
-
-# Download all files to temp processing
 
 # Extract all URLs to JSON
 
@@ -33,7 +32,7 @@ def extract_url_from_file(bytes):
     elif 'https://twitter.com' in file_string:
         return 'twitter', file_string[file_string.rfind('https://twitter.com'):]
     else:
-        return 'other', file_string
+        return 'misc', file_string
 
 
 def download_files_from_drive(service):
@@ -43,26 +42,41 @@ def download_files_from_drive(service):
         fields='files(id)').execute()
     folder_id = folder_response.get('files', []).pop()['id']
 
+    pixiv_list = []
+    twitter_list = []
+    misc_list = []
+
     page_token = None
     while True:
         file_response = service.files().list(q=f"parents in '{folder_id}'",
                                              spaces='drive',
-                                             fields='nextPageToken, files(id, name)',
+                                             fields='nextPageToken, files(id, createdTime)',
                                              pageToken=page_token).execute()
         for drive_file in file_response.get('files', []):
-            # todo: add each file_id (and file name?) to list for downloading, or read file contents
-            # probably have to download and process immediately to avoid problems with duplicate twitter.txt files
             download_request = service.files().get_media(fileId=drive_file.get('id'))
             fh = io.BytesIO()
             downloader = MediaIoBaseDownload(fh, download_request)
             done = False
             while done is False:
                 status, done = downloader.next_chunk()
+
             website, url = extract_url_from_file(fh.getvalue())
-            print(url)
+            formatted_time = pendulum.parse(
+                drive_file.get('createdTime')).in_tz('America/Los_Angeles').format('YYYY-MM-DD HH:mm')
+            if website == 'pixiv':
+                pixiv_list.append({'url': url, 'time': formatted_time})
+            elif website == 'twitter':
+                twitter_list.append({'url': url, 'time': formatted_time})
+            elif website == 'misc':
+                misc_list.append({'url': url, 'time': formatted_time})
+            print(url, formatted_time)
         page_token = file_response.get('nextPageToken', None)
         if page_token is None:
             break
+
+    print({'pixiv': pixiv_list, 'twitter': twitter_list})
+    with open('drive_links.json', 'w') as links:
+        json.dump({'pixiv': pixiv_list, 'twitter': twitter_list, 'misc': misc_list}, links, indent=4)
 
 
 def get_urls_from_drive():

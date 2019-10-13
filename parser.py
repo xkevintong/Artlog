@@ -191,7 +191,7 @@ def download_twitter_images():
             msg['num_media'] = num_media
             # msg['status'], msg['source'] = _requests_twitter_download(msg['url'])
             msg['id'] = tweet_id
-            msg['time'] = arrow.now('US/Pacific').format('YYYY-MM-DD HH:mm')
+            msg['time_downloaded'] = arrow.now('US/Pacific').format('YYYY-MM-DD HH:mm')
             image_status.append(msg)
 
     with open('twitter.json', 'w') as twitter:
