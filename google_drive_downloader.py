@@ -8,13 +8,6 @@ from oauth2client import file, client, tools
 import pendulum
 
 
-# Extract all URLs to JSON
-
-# Move folders in Drive to a processed folder
-# Check if the number of image links equals the number of files in the folder
-# Should be 1:1 so if its equal move everything to the processed folder
-
-
 def get_drive_service():
     scopes = "https://www.googleapis.com/auth/drive"
     store = file.Storage("storage.json")
@@ -52,6 +45,7 @@ def download_files_from_drive(service):
     misc_list = []
 
     page_token = None
+    file_count = 0
     while True:
         file_response = (
             service.files()
@@ -63,8 +57,11 @@ def download_files_from_drive(service):
             )
             .execute()
         )
-        for drive_file in file_response.get("files", []):
-            download_request = service.files().get_media(fileId=drive_file.get("id"))
+        files = file_response.get("files", [])
+        file_count += len(files)
+        for drive_file in files:
+            file_id = drive_file.get("id")
+            download_request = service.files().get_media(fileId=file_id)
             fh = io.BytesIO()
             downloader = MediaIoBaseDownload(fh, download_request)
             done = False
@@ -77,29 +74,68 @@ def download_files_from_drive(service):
                 .in_tz("America/Los_Angeles")
                 .format("YYYY-MM-DD HH:mm")
             )
+            file_info = {"url": url, "time": formatted_time, "drive_id": file_id}
             if website == "pixiv":
-                pixiv_list.append({"url": url, "time": formatted_time})
+                pixiv_list.append(file_info)
             elif website == "twitter":
-                twitter_list.append({"url": url, "time": formatted_time})
+                twitter_list.append(file_info)
             elif website == "misc":
-                misc_list.append({"url": url, "time": formatted_time})
+                misc_list.append(file_info)
             print(url, formatted_time)
+
         page_token = file_response.get("nextPageToken", None)
         if page_token is None:
             break
 
-    print({"pixiv": pixiv_list, "twitter": twitter_list})
-    with open("drive_links.json", "w") as links:
+    with open("drive_links.json", "w") as links_file:
         json.dump(
             {"pixiv": pixiv_list, "twitter": twitter_list, "misc": misc_list},
-            links,
+            links_file,
             indent=4,
         )
 
+    return file_count
+
+
+def move_files_in_drive(service, num_files_in_drive):
+    processed_folder_response = (
+        service.files()
+        .list(
+            q="mimeType = 'application/vnd.google-apps.folder' and name = 'Artlog_Processed'",
+            spaces="drive",
+            fields="files(id)",
+        )
+        .execute()
+    )
+    processed_folder_id = processed_folder_response.get("files", []).pop()["id"]
+
+    with open("drive_links.json") as links_file:
+        links = json.load(links_file)
+        num_files_in_json = sum(len(urls) for urls in links.values())
+        if num_files_in_json == num_files_in_drive:
+            for website in (links["pixiv"], links["twitter"]):
+                for image in website:
+                    file_id = image["drive_id"]
+                    # Retrieve the existing parents to remove
+                    drive_file = service.files().get(fileId=file_id,
+                                                     fields='parents').execute()
+                    previous_parents = ",".join(drive_file.get('parents'))
+                    # Move the file to the new folder
+                    drive_file = service.files().update(fileId=file_id,
+                                                        addParents=processed_folder_id,
+                                                        removeParents=previous_parents,
+                                                        fields='id, parents').execute()
+                    print(f"Moved {image['url']} to Artlog_Processed")
+
+        else:
+            print("Number of files in the Artlog folder does not match the number of URLs.")
+
 
 def get_urls_from_drive():
+    # todo: rework function names/structure
     service = get_drive_service()
-    download_files_from_drive(service)
+    num_files_in_drive = download_files_from_drive(service)
+    move_files_in_drive(service, num_files_in_drive)
 
 
 if __name__ == "__main__":

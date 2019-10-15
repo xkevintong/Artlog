@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "b901e1f8b05b4a51091ffffc3bed736e9b5ae5ae1de1ec8971792ce93ee4cf74"
+            "sha256": "951e7acc74bf6162542f692381085ae52c252cd64495b1cb59d2a3e665ce352f"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -116,6 +116,15 @@
             ],
             "index": "pypi",
             "version": "==2.0.5"
+        },
+        "pixivpy": {
+            "hashes": [
+                "sha256:0e2192167af214fa892a33fa9609b208d6316845c2ecf172504389d66fd5495e",
+                "sha256:4e2069fe2162a863c5da4ee5e43f034ae5eeabedc18a90ac13a7036fdc4fd68b",
+                "sha256:a215dbb36ad9624c55339da9e22742b0265edc31045191233a3518b0fe4371de"
+            ],
+            "index": "pypi",
+            "version": "==3.5.0"
         },
         "pyasn1": {
             "hashes": [
