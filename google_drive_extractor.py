@@ -23,7 +23,7 @@ def extract_url_from_file(bytes):
     if "https://www.pixiv.net" in file_string:
         return "pixiv", file_string.strip()
     elif "https://twitter.com" in file_string:
-        return "twitter", file_string[file_string.rfind("https://twitter.com") :]
+        return "twitter", file_string[file_string.rfind("https://twitter.com"):]
     else:
         return "misc", file_string
 
@@ -87,17 +87,18 @@ def download_files_from_drive(service):
         if page_token is None:
             break
 
-    with open("drive_links.json", "w") as links_file:
+    timestamp = pendulum.now().format("YYYY-MM-DD_HHmm")
+    with open(f"drive_links_{timestamp}.json", "w") as links_file:
         json.dump(
             {"pixiv": pixiv_list, "twitter": twitter_list, "misc": misc_list},
             links_file,
             indent=4,
         )
 
-    return file_count
+    return file_count, timestamp
 
 
-def move_files_in_drive(service, num_files_in_drive):
+def move_files_in_drive(service, num_files_in_drive, timestamp):
     processed_folder_response = (
         service.files()
         .list(
@@ -109,11 +110,11 @@ def move_files_in_drive(service, num_files_in_drive):
     )
     processed_folder_id = processed_folder_response.get("files", []).pop()["id"]
 
-    with open("drive_links.json") as links_file:
+    with open(f"drive_links_{timestamp}.json") as links_file:
         links = json.load(links_file)
         num_files_in_json = sum(len(urls) for urls in links.values())
         if num_files_in_json == num_files_in_drive:
-            for website in (links["pixiv"], links["twitter"]):
+            for website in (links["pixiv"], links["twitter"], links["misc"]):
                 for image in website:
                     file_id = image["drive_id"]
                     # Retrieve the existing parents to remove
@@ -127,15 +128,16 @@ def move_files_in_drive(service, num_files_in_drive):
                                                         fields='id, parents').execute()
                     print(f"Moved {image['url']} to Artlog_Processed")
 
+            print(f"{num_files_in_drive} files moved")
+
         else:
             print("Number of files in the Artlog folder does not match the number of URLs.")
 
 
 def get_urls_from_drive():
-    # todo: rework function names/structure
     service = get_drive_service()
-    num_files_in_drive = download_files_from_drive(service)
-    move_files_in_drive(service, num_files_in_drive)
+    num_files_in_drive, timestamp = download_files_from_drive(service)
+    move_files_in_drive(service, num_files_in_drive, timestamp)
 
 
 if __name__ == "__main__":
