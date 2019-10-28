@@ -2,114 +2,10 @@ import json
 
 from bs4 import BeautifulSoup
 import requests
-from tldextract import extract
-import arrow
 import tweepy
+import arrow # change to pendulum
 
-from credentials import *
-
-
-def request_url_from_div(div):
-    # Check for class="touchable _4qxt" 's href, which should be most links?
-    if div.find(class_="touchable _4qxt"):
-        url = div.find(class_="touchable _4qxt")["href"]
-        response = requests.get(url)
-        response_soup = BeautifulSoup(response.content, "html.parser")
-
-        # Facebook's redirection page for websites outside their domain
-        redirected_domain = response_soup.find("span", class_="_5slv")
-        if redirected_domain:
-            return redirected_domain.get_text()
-        else:
-            # TODO: search text for "The link you tried to visit goes against
-            # our Community Standards."
-            print(response_soup.prettify())
-            return f"something went wrong, banned image??: {url}"
-
-
-def get_url_from_msg(msg, domains):
-    # Check for class="touchable _4qxt" 's href, which should be most links?
-    if msg.div.span.a is not None:
-        return "".join(msg.div.span.a.find_all(text=True))
-
-    # Facebook page
-    elif msg.find(class_="_39pi") is not None:
-        return msg.find(class_="_39pi")["href"]
-
-    # Check if message is a box without text
-    word = msg.div.find(text=True)
-    if word:
-        if extract(word).domain in domains:
-            return request_url_from_div(msg.div)
-
-    # Dump text if nothing matches
-    return " ".join(msg.div.find_all(text=True))
-
-
-def get_time_from_msg(div):
-    if div.find("abbr"):
-        unix_time = json.loads(div.find("abbr")["data-store"])["time"]
-        time = arrow.Arrow.fromtimestamp(unix_time)
-        return time.to("US/Pacific").format("YYYY-MM-DD HH:mm")
-
-
-def parse_html():
-    links_file = open("links.json", "w", encoding="utf8")
-    scratch = open("scratch.txt", "w", encoding="utf8")
-
-    soup = BeautifulSoup(open("messenger/smol.html", encoding="utf8"), "html.parser")
-    message_group = soup.find("div", {"id": "messageGroup"})
-    msgs = message_group.find_all("div", class_="c")
-
-    num_divs = 0
-    valid_domains = [
-        "pixiv",
-        "twitter",
-        "reddit",
-        "artstation",
-        "deviantart",
-        "facebook",
-    ]
-    links = {}
-    for domain in valid_domains:
-        links[domain] = []
-
-    # These aren't valid domains, but will collect
-    invalid_ = ["misc", "message"]
-    for key in invalid_:
-        links[key] = []
-
-    for i, msg in enumerate(msgs):
-        num_divs += 1
-        scratch.write(msg.prettify())
-        info = {
-            "url": get_url_from_msg(msg.div, valid_domains),
-            "time": get_time_from_msg(msg.div.next_sibling),
-        }
-
-        if info["url"]:
-            domain = extract(info["url"]).domain
-            if domain in valid_domains:
-                links[domain].append(info)
-            else:
-                links["misc"].append(info)
-        else:
-            print("Nothing extracted from div, probably a raw image")
-            print(msg.prettify())
-            links["message"] = info
-
-    json.dump(links, links_file, indent=4)
-
-    # TODO: count number of possible raw images
-
-    # Everything else should go in some Misc. section
-    # is there really a misc section if i have to know how to pull the url
-    # really just a have to sort manually section
-
-    if i + 1 != num_divs:
-        print(f"{num_divs-i-1} messages were not correctly processed")
-    else:
-        print("All messages processed correctly!")
+from credentials import consumer_key, consumer_secret, access_token, access_token_secret
 
 
 def twitter_auth():
@@ -154,7 +50,8 @@ def like_tweet(tweepy_api, tweet_id):
 
 def download_twitter_images():
     api = twitter_auth()
-    with open("links.json") as links:
+    # todo: move logic for pulling twitter and pixiv somewhere else
+    with open("links_messenger.json") as links:
         image_status = []
         for msg in json.load(links)["twitter"]:
             tweet_id = msg["url"].partition("status/")[2].partition("?")[0]
@@ -173,6 +70,7 @@ def download_twitter_images():
                                 file.write(media_response.content)
                             print(media["media_url"])
                     except KeyError:
+                        # todo: do something here?
                         pass
                     # Also check to see if a tweet was quoted
                     try:
@@ -207,17 +105,3 @@ def download_twitter_images():
 
     with open("twitter.json", "w") as twitter:
         json.dump(image_status, twitter, indent=4)
-
-
-def download_pixiv_images():
-    pass
-
-
-def download_images():
-    download_twitter_images()
-    download_pixiv_images()
-
-
-if __name__ == "__main__":
-    # parse_html()
-    download_images()
