@@ -85,7 +85,7 @@ def sort_domains():
                     domain = extract(clean_info["url"]).domain
                     if extract(clean_info["url"]).domain in valid_domains:
                         links[domain].append(clean_info)
-                    elif domain:
+                    elif domain and extract(clean_info["url"]).subdomain:
                         links["misc"].append(clean_info)
                     else:
                         links["message"].append(clean_info)
