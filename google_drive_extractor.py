@@ -23,7 +23,7 @@ def extract_url_from_file(bytes):
     if "https://www.pixiv.net" in file_string:
         return "pixiv", file_string.strip()
     elif "https://twitter.com" in file_string:
-        return "twitter", file_string[file_string.rfind("https://twitter.com"):]
+        return "twitter", file_string[file_string.rfind("https://twitter.com") :]
     else:
         return "misc", file_string
 
@@ -118,20 +118,29 @@ def move_files_in_drive(service, num_files_in_drive, timestamp):
                 for image in website:
                     file_id = image["drive_id"]
                     # Retrieve the existing parents to remove
-                    drive_file = service.files().get(fileId=file_id,
-                                                     fields='parents').execute()
-                    previous_parents = ",".join(drive_file.get('parents'))
+                    drive_file = (
+                        service.files().get(fileId=file_id, fields="parents").execute()
+                    )
+                    previous_parents = ",".join(drive_file.get("parents"))
                     # Move the file to the new folder
-                    drive_file = service.files().update(fileId=file_id,
-                                                        addParents=processed_folder_id,
-                                                        removeParents=previous_parents,
-                                                        fields='id, parents').execute()
+                    drive_file = (
+                        service.files()
+                        .update(
+                            fileId=file_id,
+                            addParents=processed_folder_id,
+                            removeParents=previous_parents,
+                            fields="id, parents",
+                        )
+                        .execute()
+                    )
                     print(f"Moved {image['url']} to Artlog_Processed")
 
             print(f"{num_files_in_drive} files moved")
 
         else:
-            print("Number of files in the Artlog folder does not match the number of URLs.")
+            print(
+                "Number of files in the Artlog folder does not match the number of URLs."
+            )
 
 
 def get_urls_from_drive():

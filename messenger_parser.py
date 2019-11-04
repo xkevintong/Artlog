@@ -4,7 +4,7 @@ import os
 from bs4 import BeautifulSoup
 import requests
 from tldextract import extract
-import arrow # todo: change to pendulum
+import arrow  # todo: change to pendulum
 import pendulum
 
 
@@ -25,7 +25,7 @@ def request_facebook_url(url):
 
 
 def get_url_from_msg(msg):
-    url_list =[]
+    url_list = []
     # Get all touchable links
     for link in msg.find_all(class_="touchable _4qxt"):
         url_list.append(link["href"])
@@ -63,29 +63,46 @@ def sort_domains():
         "facebook",
     ]
 
-    links = {}
-    for domain in valid_domains:
-        links[domain] = []
+    invalid_domains = ["misc", "message"]
 
-    # All other domains fall under misc, text messages fall under messages
-    invalid_ = ["misc", "message"]
-    for key in invalid_:
-        links[key] = []
+    for file in [
+        f for f in os.listdir("clean/") if os.path.isfile(os.path.join("clean/", f))
+    ]:
 
-    # if info["url"]:
-    #     domain = extract(info["url"]).domain
-    #     if domain in valid_domains:
-    #         links[domain].append(info)
-    #     else:
-    #         links["misc"].append(info)
-    # else:
-    #     print("Nothing extracted from div, probably a raw image")
-    #     print(msg.prettify())
-    #     links["message"].append(info)
+        links = {}
+        for domain in valid_domains:
+            links[domain] = []
+
+        # All other domains fall under misc, text messages fall under messages
+        for key in invalid_domains:
+            links[key] = []
+
+        with open(f"clean/{file}") as clean_file:
+            clean_list = json.load(clean_file)
+            for clean_info in clean_list:
+                # todo: double check what a raw image looks like
+                if clean_info["url"]:
+                    domain = extract(clean_info["url"]).domain
+                    if extract(clean_info["url"]).domain in valid_domains:
+                        links[domain].append(clean_info)
+                    elif domain:
+                        links["misc"].append(clean_info)
+                    else:
+                        links["message"].append(clean_info)
+                else:
+                    print("Nothing extracted from div, probably a raw image")
+                    links["message"].append(clean_info)
+
+        with open(f"sorted/{file}", "w") as sorted_file:
+            json.dump(links, sorted_file, indent=4)
 
 
 def extract_links_from_html(html_file):
-    raw_links_file = open(f"raw/links_messenger_{pendulum.now().format('YYYY-MM-DD_HHmm')}.json", "w", encoding="utf8")
+    raw_links_file = open(
+        f"raw/links_messenger_{pendulum.now().format('YYYY-MM-DD_HHmm')}.json",
+        "w",
+        encoding="utf8",
+    )
     # scratch = open("scratch.txt", "w", encoding="utf8")
 
     soup = BeautifulSoup(open(html_file, encoding="utf8"), "html.parser")
@@ -100,10 +117,7 @@ def extract_links_from_html(html_file):
         # scratch.write(msg.prettify())
         msg_time = get_time_from_msg(msg.div.next_sibling)
         for url in get_url_from_msg(msg.div):
-            info = {
-                "url": url,
-                "time": msg_time,
-            }
+            info = {"url": url, "time": msg_time}
 
             raw_links.append(info)
 
@@ -119,14 +133,18 @@ def extract_links_from_html(html_file):
 
 
 def remove_link_shim():
-    for file in [f for f in os.listdir('raw/') if os.path.isfile(os.path.join('raw/', f))]:
+    for file in [
+        f for f in os.listdir("raw/") if os.path.isfile(os.path.join("raw/", f))
+    ]:
         clean_list = []
         with open(f"raw/{file}") as raw_file:
             raw_list = json.load(raw_file)
             for raw_info in raw_list:
                 if extract(raw_info["url"]).subdomain == "lm":
-                    clean_info = {"url": request_facebook_url(raw_info["url"]),
-                                  "time": raw_info["time"]}
+                    clean_info = {
+                        "url": request_facebook_url(raw_info["url"]),
+                        "time": raw_info["time"],
+                    }
                     clean_list.append(clean_info)
                 else:
                     clean_list.append(raw_info)
@@ -139,6 +157,6 @@ def remove_link_shim():
 
 
 if __name__ == "__main__":
-    extract_links_from_html("messenger/smol.html")
+    extract_links_from_html("messenger/medi.html")
     remove_link_shim()
-
+    sort_domains()

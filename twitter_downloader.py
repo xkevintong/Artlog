@@ -3,7 +3,7 @@ import json
 from bs4 import BeautifulSoup
 import requests
 import tweepy
-import arrow # change to pendulum
+import arrow  # change to pendulum
 
 from credentials import consumer_key, consumer_secret, access_token, access_token_secret
 

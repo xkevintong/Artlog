@@ -17,12 +17,12 @@ def test():
     json_result = api.illust_detail(69232275)
     print(json.dumps(json_result, indent=4))
     urls = []
-    for page in json_result['illust']['meta_pages']:
-        print(page['image_urls']['original'])
-        urls.append(page['image_urls']['original'])
+    for page in json_result["illust"]["meta_pages"]:
+        print(page["image_urls"]["original"])
+        urls.append(page["image_urls"]["original"])
 
     for url in urls:
-        api.download(url, path='images')
+        api.download(url, path="images")
 
 
 if __name__ == "__main__":
