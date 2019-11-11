@@ -1,5 +1,6 @@
 import json
 import os
+import re
 
 from bs4 import BeautifulSoup
 import requests
@@ -14,14 +15,19 @@ def request_facebook_url(url):
 
     # Facebook's redirection page for websites outside their domain
     redirected_domain = response_soup.find("span", class_="_5slv")
+    script_url = response_soup.find("script", text=re.compile("^document.location.replace"))
+
     if redirected_domain:
-        return redirected_domain.get_text()
+        return False, redirected_domain.get_text()
+    elif script_url:
+        # Clean up url from script
+        return False, script_url.text.split('"')[1]
     else:
         # TODO: search text for "The link you tried to visit goes against
         # our Community Standards."
         print("Something went wrong, banned image?")
         print(response_soup.prettify())
-        return f"something went wrong, banned image??: {url}"
+        return True, url
 
 
 def get_url_from_msg(msg):
@@ -36,12 +42,15 @@ def get_url_from_msg(msg):
     #     url_list.append("".join(msg.span.a.find_all(text=True)))
 
     # Facebook pages
-    for link in msg.find_all(class_="_39pi"):
+    for link in msg.find_all(class_="_5msj"):
         url_list.append(link["href"])
 
-    # Dump text if nothing matches
+    # If nothing matches, check if raw text has a link, otherwise dump text
     if not url_list:
-        return [" ".join(msg.find_all(text=True))]
+        if msg.div.span.a is not None:
+            url_list.append("".join(msg.span.a.find_all(text=True)))
+        else:
+            return [" ".join(msg.find_all(text=True))]
 
     return url_list
 
@@ -53,7 +62,64 @@ def get_time_from_msg(div):
         return time.to("US/Pacific").format("YYYY-MM-DD HH:mm")
 
 
-def sort_domains():
+def extract_links_from_html(html_file):
+    raw_links_file = open(
+        f"raw/links_messenger_{pendulum.now().format('YYYY-MM-DD_HHmm')}.json",
+        "w",
+        encoding="utf8",
+    )
+
+    soup = BeautifulSoup(open(html_file, encoding="utf8"), "html.parser")
+    message_group = soup.find("div", {"id": "messageGroup"})
+    msgs = message_group.find_all("div", class_="c")
+
+    raw_links = []
+
+    for msg in msgs:
+        msg_time = get_time_from_msg(msg.div.next_sibling)
+        for url in get_url_from_msg(msg.div):
+            info = {"url": url, "time": msg_time}
+
+            raw_links.append(info)
+
+    json.dump(raw_links, raw_links_file, indent=4)
+
+    # TODO: count number of possible raw images
+
+
+def remove_link_shim(read_all_files):
+    file_list = [
+        f for f in os.listdir("raw/") if os.path.isfile(os.path.join("raw/", f))
+    ]
+    if not read_all_files:
+        file_list = [max(["raw/" + file for file in file_list], key=os.path.getctime)]
+
+    for file in file_list:
+        clean_list = []
+        with open(file) as raw_file:
+            raw_list = json.load(raw_file)
+            for raw_info in raw_list:
+                if extract(raw_info["url"]).subdomain == "lm":
+                    status, url = request_facebook_url(raw_info["url"])
+                    clean_info = {
+                        "url": url,
+                        "time": raw_info["time"],
+                        "banned": status
+                    }
+                    clean_list.append(clean_info)
+                else:
+                    raw_info["banned"] = False
+                    clean_list.append(raw_info)
+
+        # Remove 'raw/' prefix
+        with open(f"clean/{file[4:]}", "w") as clean_file:
+            if len(raw_list) == len(clean_list):
+                json.dump(clean_list, clean_file, indent=4)
+            else:
+                print("Something went wrong with removing link shim.")
+
+
+def sort_domains(read_all_files):
     valid_domains = [
         "pixiv",
         "twitter",
@@ -65,10 +131,13 @@ def sort_domains():
 
     invalid_domains = ["misc", "message"]
 
-    for file in [
+    file_list = [
         f for f in os.listdir("clean/") if os.path.isfile(os.path.join("clean/", f))
-    ]:
+    ]
+    if not read_all_files:
+        file_list = [max(["clean/" + file for file in file_list], key=os.path.getctime)]
 
+    for file in file_list:
         links = {}
         for domain in valid_domains:
             links[domain] = []
@@ -77,7 +146,8 @@ def sort_domains():
         for key in invalid_domains:
             links[key] = []
 
-        with open(f"clean/{file}") as clean_file:
+        # todo: add a section for banned fb links and grab before sorting
+        with open(file) as clean_file:
             clean_list = json.load(clean_file)
             for clean_info in clean_list:
                 # todo: double check what a raw image looks like
@@ -93,70 +163,13 @@ def sort_domains():
                     print("Nothing extracted from div, probably a raw image")
                     links["message"].append(clean_info)
 
-        with open(f"sorted/{file}", "w") as sorted_file:
+        # Remove 'clean/' prefix
+        with open(f"sorted/{file[6:]}", "w") as sorted_file:
             json.dump(links, sorted_file, indent=4)
 
 
-def extract_links_from_html(html_file):
-    raw_links_file = open(
-        f"raw/links_messenger_{pendulum.now().format('YYYY-MM-DD_HHmm')}.json",
-        "w",
-        encoding="utf8",
-    )
-    # scratch = open("scratch.txt", "w", encoding="utf8")
-
-    soup = BeautifulSoup(open(html_file, encoding="utf8"), "html.parser")
-    message_group = soup.find("div", {"id": "messageGroup"})
-    msgs = message_group.find_all("div", class_="c")
-
-    raw_links = []
-    num_divs = 0
-
-    for i, msg in enumerate(msgs):
-        num_divs += 1
-        # scratch.write(msg.prettify())
-        msg_time = get_time_from_msg(msg.div.next_sibling)
-        for url in get_url_from_msg(msg.div):
-            info = {"url": url, "time": msg_time}
-
-            raw_links.append(info)
-
-    json.dump(raw_links, raw_links_file, indent=4)
-
-    # TODO: count number of possible raw images
-
-    # todo: fix or remove this check
-    if i + 1 != num_divs:
-        print(f"{num_divs-i-1} messages were not correctly processed")
-    else:
-        print("All messages processed correctly!")
-
-
-def remove_link_shim():
-    for file in [
-        f for f in os.listdir("raw/") if os.path.isfile(os.path.join("raw/", f))
-    ]:
-        clean_list = []
-        with open(f"raw/{file}") as raw_file:
-            raw_list = json.load(raw_file)
-            for raw_info in raw_list:
-                if extract(raw_info["url"]).subdomain == "lm":
-                    clean_info = {
-                        "url": request_facebook_url(raw_info["url"]),
-                        "time": raw_info["time"],
-                    }
-                    clean_list.append(clean_info)
-                else:
-                    clean_list.append(raw_info)
-
-        with open(f"clean/{file}", "w") as clean_file:
-            if len(raw_list) == len(clean_list):
-                json.dump(clean_list, clean_file, indent=4)
-            else:
-                print("Something went wrong with removing link shim.")
-
-
 if __name__ == "__main__":
+    ALL_FILES = False
     extract_links_from_html("messenger/medi.html")
-    remove_link_shim()
-    sort_domains()
+    remove_link_shim(ALL_FILES)
+    sort_domains(ALL_FILES)
