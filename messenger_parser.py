@@ -15,17 +15,24 @@ def request_facebook_url(url):
 
     # Facebook's redirection page for websites outside their domain
     redirected_domain = response_soup.find("span", class_="_5slv")
-    script_url = response_soup.find("script", text=re.compile("^document.location.replace"))
+    script_url = response_soup.find(
+        "script", text=re.compile("^document.location.replace")
+    )
+    fb_community_standards = response_soup.find(class_="mvm uiP fsm")
 
     if redirected_domain:
         return False, redirected_domain.get_text()
     elif script_url:
         # Clean up url from script
         return False, script_url.text.split('"')[1]
+    elif fb_community_standards:
+        if (
+            fb_community_standards.a["href"]
+            == "https://www.facebook.com/communitystandards"
+        ):
+            return True, url
     else:
-        # TODO: search text for "The link you tried to visit goes against
-        # our Community Standards."
-        print("Something went wrong, banned image?")
+        print("Something went wrong")
         print(response_soup.prettify())
         return True, url
 
@@ -104,7 +111,7 @@ def remove_link_shim(read_all_files):
                     clean_info = {
                         "url": url,
                         "time": raw_info["time"],
-                        "banned": status
+                        "banned": status,
                     }
                     clean_list.append(clean_info)
                 else:
