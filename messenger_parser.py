@@ -34,7 +34,7 @@ def request_facebook_url(url):
     else:
         print("Something went wrong")
         print(response_soup.prettify())
-        return True, url
+        return True, f"ERROR: {url}"
 
 
 def get_url_from_msg(msg):
@@ -42,11 +42,6 @@ def get_url_from_msg(msg):
     # Get all touchable links
     for link in msg.find_all(class_="touchable _4qxt"):
         url_list.append(link["href"])
-
-    # Checks for a hyperlink in raw text
-    # This only produces duplicates, probably hyperlink without touchable link
-    # if msg.div.span.a is not None:
-    #     url_list.append("".join(msg.span.a.find_all(text=True)))
 
     # Facebook pages
     for link in msg.find_all(class_="_5msj"):
@@ -91,8 +86,6 @@ def extract_links_from_html(html_file):
 
     json.dump(raw_links, raw_links_file, indent=4)
 
-    # TODO: count number of possible raw images
-
 
 def remove_link_shim(read_all_files):
     file_list = [
@@ -136,7 +129,7 @@ def sort_domains(read_all_files):
         "facebook",
     ]
 
-    invalid_domains = ["misc", "message", "banned"]
+    other_buckets = ["misc", "message", "banned", "raw_images"]
 
     file_list = [
         f for f in os.listdir("clean/") if os.path.isfile(os.path.join("clean/", f))
@@ -150,14 +143,12 @@ def sort_domains(read_all_files):
             links[domain] = []
 
         # All other domains fall under misc, text messages fall under messages
-        for key in invalid_domains:
+        for key in other_buckets:
             links[key] = []
 
-        # todo: add a section for banned fb links and grab before sorting
         with open(file) as clean_file:
             clean_list = json.load(clean_file)
             for clean_info in clean_list:
-                # todo: double check what a raw image looks like
                 if clean_info.pop("banned"):
                     links["banned"].append(clean_info)
                 elif clean_info["url"]:
@@ -167,9 +158,15 @@ def sort_domains(read_all_files):
                     elif clean_info["url"][:4] == "http":
                         links["misc"].append(clean_info)
                     else:
-                        links["message"].append(clean_info)
+                        message = clean_info.pop("url")[10:].strip()
+                        if message:
+                            clean_info["message"] = message
+                            links["message"].append(clean_info)
+                        else:
+                            links["raw_images"].append({"time": clean_info["time"]})
+
                 else:
-                    print("Nothing extracted from div, probably a raw image")
+                    print("Nothing extracted from div?")
                     links["message"].append(clean_info)
 
         # Remove 'clean/' prefix
@@ -179,6 +176,9 @@ def sort_domains(read_all_files):
 
 if __name__ == "__main__":
     ALL_FILES = False
-    extract_links_from_html("messenger/medi.html")
-    remove_link_shim(ALL_FILES)
+    print("Beginning extraction.")
+    # extract_links_from_html("messenger/biggu.html")
+    print("Extraction finished. Removing link shim.")
+    # remove_link_shim(ALL_FILES)
+    print("Link shim removed. Sorting domains.")
     sort_domains(ALL_FILES)
