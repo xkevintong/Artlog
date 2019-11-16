@@ -136,7 +136,7 @@ def sort_domains(read_all_files):
         "facebook",
     ]
 
-    invalid_domains = ["misc", "message"]
+    invalid_domains = ["misc", "message", "banned"]
 
     file_list = [
         f for f in os.listdir("clean/") if os.path.isfile(os.path.join("clean/", f))
@@ -158,11 +158,13 @@ def sort_domains(read_all_files):
             clean_list = json.load(clean_file)
             for clean_info in clean_list:
                 # todo: double check what a raw image looks like
-                if clean_info["url"]:
+                if clean_info.pop("banned"):
+                    links["banned"].append(clean_info)
+                elif clean_info["url"]:
                     domain = extract(clean_info["url"]).domain
                     if extract(clean_info["url"]).domain in valid_domains:
                         links[domain].append(clean_info)
-                    elif domain and extract(clean_info["url"]).subdomain:
+                    elif clean_info["url"][:4] == "http":
                         links["misc"].append(clean_info)
                     else:
                         links["message"].append(clean_info)
