@@ -98,7 +98,7 @@ def remove_link_shim(read_all_files):
         clean_list = []
         with open(file) as raw_file:
             raw_list = json.load(raw_file)
-            for raw_info in raw_list:
+            for i, raw_info in enumerate(raw_list, start=1):
                 if extract(raw_info["url"]).subdomain == "lm":
                     status, url = request_facebook_url(raw_info["url"])
                     clean_info = {
@@ -110,6 +110,7 @@ def remove_link_shim(read_all_files):
                 else:
                     raw_info["banned"] = False
                     clean_list.append(raw_info)
+                print(f"{i}/{len(raw_list)}")
 
         # Remove 'raw/' prefix
         with open(f"clean/{file[4:]}", "w") as clean_file:
@@ -129,7 +130,7 @@ def sort_domains(read_all_files):
         "facebook",
     ]
 
-    other_buckets = ["misc", "message", "banned", "raw_images"]
+    other_buckets = ["misc", "message", "banned", "deleted_tweet", "raw_images"]
 
     file_list = [
         f for f in os.listdir("clean/") if os.path.isfile(os.path.join("clean/", f))
@@ -148,26 +149,41 @@ def sort_domains(read_all_files):
 
         with open(file) as clean_file:
             clean_list = json.load(clean_file)
-            for clean_info in clean_list:
+            for i, clean_info in enumerate(clean_list):
                 if clean_info.pop("banned"):
                     links["banned"].append(clean_info)
                 elif clean_info["url"]:
-                    domain = extract(clean_info["url"]).domain
-                    if extract(clean_info["url"]).domain in valid_domains:
-                        links[domain].append(clean_info)
+                    url_extract = extract(clean_info["url"])
+                    if url_extract.domain in valid_domains:
+                        links[url_extract.domain].append(clean_info)
+                    # Expand shortened twitter URL
+                    elif url_extract.domain == "t" and url_extract.suffix == "co":
+                        response = requests.get(clean_info["url"])
+                        clean_info["url"] = response.url
+                        if response.status_code == 200:
+                            links["twitter"].append(clean_info)
+                        else:
+                            links["deleted_tweet"].append(clean_info)
+                    # Append facebook domain to its pages
+                    elif clean_info["url"][:6] in ("/story", "/group"):
+                        clean_info["url"] = "https://facebook.com" + clean_info["url"]
+                        links["facebook"].append(clean_info)
                     elif clean_info["url"][:4] == "http":
                         links["misc"].append(clean_info)
                     else:
-                        message = clean_info.pop("url")[10:].strip()
+                        message = (
+                            clean_info.pop("url").replace("Kevin Tong", "").strip()
+                        )
                         if message:
                             clean_info["message"] = message
                             links["message"].append(clean_info)
                         else:
                             links["raw_images"].append({"time": clean_info["time"]})
-
                 else:
                     print("Nothing extracted from div?")
                     links["message"].append(clean_info)
+
+                print(f"{i}/{len(clean_list)}")
 
         # Remove 'clean/' prefix
         with open(f"sorted/{file[6:]}", "w") as sorted_file:
@@ -177,8 +193,8 @@ def sort_domains(read_all_files):
 if __name__ == "__main__":
     ALL_FILES = False
     print("Beginning extraction.")
-    # extract_links_from_html("messenger/biggu.html")
+    extract_links_from_html("messenger/part2.html")
     print("Extraction finished. Removing link shim.")
-    # remove_link_shim(ALL_FILES)
+    remove_link_shim(ALL_FILES)
     print("Link shim removed. Sorting domains.")
     sort_domains(ALL_FILES)
