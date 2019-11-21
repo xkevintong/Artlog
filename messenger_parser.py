@@ -120,6 +120,33 @@ def remove_link_shim(read_all_files):
                 print("Something went wrong with removing link shim.")
 
 
+def expand_twitter_links():
+    expanded_list = []
+    file_list = [
+        f for f in os.listdir("clean/") if os.path.isfile(os.path.join("clean/", f))
+    ]
+    file = max(["clean/" + file for file in file_list], key=os.path.getctime)
+    with open(file) as clean_file:
+        clean_list = json.load(clean_file)
+        for i, clean_info in enumerate(clean_list, start=1):
+            url_extract = extract(clean_info["url"])
+            if url_extract.domain == "t" and url_extract.suffix == "co":
+                response = requests.get(clean_info["url"])
+                if response.status_code == 200:
+                    clean_info["deleted"] = False
+                else:
+                    clean_info["deleted"] = True
+                clean_info["url"] = response.url
+            else:
+                clean_info["deleted"] = False
+            expanded_list.append(clean_info)
+            print(f"{i}/{len(clean_list)}")
+
+        # Remove 'clean/' prefix
+        with open(f"clean_twitter_links/{file[6:]}", "w") as expanded_file:
+            json.dump(expanded_list, expanded_file, indent=4)
+
+
 def sort_domains(read_all_files):
     valid_domains = [
         "pixiv",
@@ -133,10 +160,17 @@ def sort_domains(read_all_files):
     other_buckets = ["misc", "message", "banned", "deleted_tweet", "raw_images"]
 
     file_list = [
-        f for f in os.listdir("clean/") if os.path.isfile(os.path.join("clean/", f))
+        f
+        for f in os.listdir("clean_twitter_links/")
+        if os.path.isfile(os.path.join("clean_twitter_links/", f))
     ]
     if not read_all_files:
-        file_list = [max(["clean/" + file for file in file_list], key=os.path.getctime)]
+        file_list = [
+            max(
+                ["clean_twitter_links/" + file for file in file_list],
+                key=os.path.getctime,
+            )
+        ]
 
     for file in file_list:
         links = {}
@@ -150,20 +184,18 @@ def sort_domains(read_all_files):
         with open(file) as clean_file:
             clean_list = json.load(clean_file)
             for i, clean_info in enumerate(clean_list):
-                if clean_info.pop("banned"):
+                # Pop both keys and check if URL is deleted or banned before sorting
+                # A URL cannot be both deleted and banned
+                deleted = clean_info.pop("deleted")
+                banned = clean_info.pop("banned")
+                if deleted:
+                    links["deleted_tweet"].append(clean_info)
+                elif banned:
                     links["banned"].append(clean_info)
                 elif clean_info["url"]:
                     url_extract = extract(clean_info["url"])
                     if url_extract.domain in valid_domains:
                         links[url_extract.domain].append(clean_info)
-                    # Expand shortened twitter URL
-                    elif url_extract.domain == "t" and url_extract.suffix == "co":
-                        response = requests.get(clean_info["url"])
-                        clean_info["url"] = response.url
-                        if response.status_code == 200:
-                            links["twitter"].append(clean_info)
-                        else:
-                            links["deleted_tweet"].append(clean_info)
                     # Append facebook domain to its pages
                     elif clean_info["url"][:6] in ("/story", "/group"):
                         clean_info["url"] = "https://facebook.com" + clean_info["url"]
@@ -186,7 +218,7 @@ def sort_domains(read_all_files):
                 print(f"{i}/{len(clean_list)}")
 
         # Remove 'clean/' prefix
-        with open(f"sorted/{file[6:]}", "w") as sorted_file:
+        with open(f"sorted/{file[19:]}", "w") as sorted_file:
             json.dump(links, sorted_file, indent=4)
 
 
@@ -196,5 +228,7 @@ if __name__ == "__main__":
     extract_links_from_html("messenger/part2.html")
     print("Extraction finished. Removing link shim.")
     remove_link_shim(ALL_FILES)
-    print("Link shim removed. Sorting domains.")
+    print("Link shim removed. Expanding twitter links.")
+    expand_twitter_links()
+    print("Twitter links expanded. Sorting domains.")
     sort_domains(ALL_FILES)
