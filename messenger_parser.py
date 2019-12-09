@@ -207,8 +207,8 @@ def sort_domains(read_all_files):
                             clean_info.pop("url").replace("Kevin Tong", "").strip()
                         )
                         if message:
-                            clean_info["message"] = message
-                            links["message"].append(clean_info)
+                            # Manual ordering of dictionary
+                            links["message"].append({"message": message, "time": clean_info["time"]})
                         else:
                             links["raw_images"].append({"time": clean_info["time"]})
                 else:
@@ -225,10 +225,10 @@ def sort_domains(read_all_files):
 if __name__ == "__main__":
     ALL_FILES = False
     print("Beginning extraction.")
-    extract_links_from_html("messenger/part2.html")
+    # extract_links_from_html("messenger/part2.html")
     print("Extraction finished. Removing link shim.")
-    remove_link_shim(ALL_FILES)
+    # remove_link_shim(ALL_FILES)
     print("Link shim removed. Expanding twitter links.")
-    expand_twitter_links()
+    # expand_twitter_links()
     print("Twitter links expanded. Sorting domains.")
     sort_domains(ALL_FILES)

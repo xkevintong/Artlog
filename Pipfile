@@ -15,6 +15,7 @@ google-api-python-client = "*"
 oauth2client = "*"
 pendulum = "*"
 pixivpy = "*"
+furl = "*"
 
 [requires]
 python_version = "3.7"

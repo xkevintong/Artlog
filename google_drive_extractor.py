@@ -88,7 +88,7 @@ def download_files_from_drive(service):
             break
 
     timestamp = pendulum.now().format("YYYY-MM-DD_HHmm")
-    with open(f"drive_links_{timestamp}.json", "w") as links_file:
+    with open(f"drive_links/drive_links_{timestamp}.json", "w") as links_file:
         json.dump(
             {"pixiv": pixiv_list, "twitter": twitter_list, "misc": misc_list},
             links_file,
@@ -110,7 +110,7 @@ def move_files_in_drive(service, num_files_in_drive, timestamp):
     )
     processed_folder_id = processed_folder_response.get("files", []).pop()["id"]
 
-    with open(f"drive_links_{timestamp}.json") as links_file:
+    with open(f"drive_links/drive_links_{timestamp}.json") as links_file:
         links = json.load(links_file)
         num_files_in_json = sum(len(urls) for urls in links.values())
         if num_files_in_json == num_files_in_drive:
@@ -143,10 +143,15 @@ def move_files_in_drive(service, num_files_in_drive, timestamp):
             )
 
 
+def upload_json():
+    pass
+
 def get_urls_from_drive():
     service = get_drive_service()
     num_files_in_drive, timestamp = download_files_from_drive(service)
     move_files_in_drive(service, num_files_in_drive, timestamp)
+    # todo: upload the json to another google drive folder
+    upload_json(service)
 
 
 if __name__ == "__main__":
