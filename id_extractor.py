@@ -18,7 +18,7 @@ def extract_twitter_id(info):
 
 
 def extract_image_ids():
-
+    pass
 
 
 if __name__ == "__main__":

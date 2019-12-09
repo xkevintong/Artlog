@@ -208,7 +208,9 @@ def sort_domains(read_all_files):
                         )
                         if message:
                             # Manual ordering of dictionary
-                            links["message"].append({"message": message, "time": clean_info["time"]})
+                            links["message"].append(
+                                {"message": message, "time": clean_info["time"]}
+                            )
                         else:
                             links["raw_images"].append({"time": clean_info["time"]})
                 else:

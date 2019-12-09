@@ -146,6 +146,7 @@ def move_files_in_drive(service, num_files_in_drive, timestamp):
 def upload_json():
     pass
 
+
 def get_urls_from_drive():
     service = get_drive_service()
     num_files_in_drive, timestamp = download_files_from_drive(service)
