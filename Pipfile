@@ -16,6 +16,7 @@ oauth2client = "*"
 pendulum = "*"
 pixivpy = "*"
 furl = "*"
+pytest = "*"
 
 [requires]
 python_version = "3.7"
