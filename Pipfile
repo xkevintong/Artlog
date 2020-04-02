@@ -17,6 +17,7 @@ pendulum = "*"
 pixivpy = "*"
 furl = "*"
 pytest = "*"
+testfixtures = "*"
 
 [requires]
 python_version = "3.7"
