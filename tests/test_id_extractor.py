@@ -167,6 +167,17 @@ def test_extract_twitter_artist_id_with_query():
     assert info_id == "gridgrid3"
 
 
+def test_twitter_suspended_account():
+    info = {
+        "url": "https://twitter.com/account/suspended",
+        "time": "2018-12-17 15:34"
+    }
+
+    info_type, info_id = id_extractor.extract_twitter_id(info)
+    assert info_type == "suspended"
+    assert info_id == -1
+
+
 def test_extract_image_ids(tempdir):
     id_extractor.extract_image_ids("tests/raw/", tempdir.path)
     file_list = utils.get_file_list_from_folder("tests/extracted/")

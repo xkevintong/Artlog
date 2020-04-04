@@ -24,7 +24,9 @@ def extract_pixiv_id(info):
 def extract_twitter_id(info):
     if "url" in info:
         url = furl(info["url"])
-        if len(url.path.segments) == 1:
+        if url.path.segments[0] == "account" and url.path.segments[1] == "suspended":
+            return "suspended", -1
+        elif len(url.path.segments) == 1:
             return "artist", url.path.segments[0]
         elif url.path.segments[-2] == "photo":
             return "art", int(url.path.segments[-3])
